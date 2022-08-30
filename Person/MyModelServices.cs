@@ -26,4 +26,20 @@ public class MyModelServices
 
         return false;
     }
+
+    public static MyModel UpdatePerson(List<MyModel> source, int id, string name, string lastName)
+    {
+        MyModel updatePerson = new MyModel();
+        foreach (MyModel person in source)
+        {
+            if (person.Id.Equals(id))
+            {
+                person.FirstName = name;
+                person.LastName = lastName;
+                updatePerson = person;
+                break;
+            }
+        }
+        return updatePerson;
+    }
 }

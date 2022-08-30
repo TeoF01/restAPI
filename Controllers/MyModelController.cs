@@ -70,4 +70,11 @@ public class MyModelController : ControllerBase
         _logger.Log(LogLevel.Error, message:$"Person with id: {id} not found");
         return StatusCode(404, $"Person with id: {id} not found");
     }
+    
+    //UPDATE
+    [HttpPut]
+    public async Task<ActionResult<MyModel>> UpdatePerson(int id, string name, string lastName)
+    {
+        return MyModelServices.UpdatePerson(_personList, id, name, lastName);
+    }
 }
