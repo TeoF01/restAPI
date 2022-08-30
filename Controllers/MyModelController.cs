@@ -7,8 +7,14 @@ namespace RestApiProject.Controllers;
 [Route("[controller]")]
 
 public class MyModelController : ControllerBase
-{
-    private static List<MyModel> personList = new List<MyModel>()
+{   
+    private readonly ILogger<MyModelController> _logger;
+
+    public MyModelController(ILogger<MyModelController> logger)
+    {
+        _logger = logger;
+    }
+    private static List<MyModel> _personList = new List<MyModel>()
     {
         new MyModel() { Id = 1, FirstName = "John", LastName = "Doe" },
         new MyModel() { Id = 2, FirstName = "Aron", LastName = "Dust" },
@@ -21,17 +27,17 @@ public class MyModelController : ControllerBase
     {
         if (id is not null)
         {
-            foreach (MyModel person in personList)
+            foreach (MyModel person in _personList)
             {
                 if (person.Id == id)
                 {
                     return Ok(person);
                 }
             }
-
+            _logger.Log(LogLevel.Error, message:$"Person with id {id} not found");
             return StatusCode(404, $"Person with id {id} not found");
         }
-        return Ok(personList);
+        return Ok(_personList);
     }
 
     // POST
@@ -42,11 +48,11 @@ public class MyModelController : ControllerBase
         try
         {
             person = MyModelServices.CreatePerson(id, name, lastName);
-            personList.Add(person);
+            _personList.Add(person);
         }
         catch (Exception e)
         {
-            Console.WriteLine(e);
+            _logger.Log(LogLevel.Error, message:$"{e}");
             return StatusCode(400, e);
         }
         return StatusCode(201, person);
@@ -56,12 +62,12 @@ public class MyModelController : ControllerBase
     [HttpDelete]
     public async Task<ActionResult<MyModel>> DeletePerson(int id)
     {
-        bool isDeleted = MyModelServices.DeletePerson(personList, id);
+        bool isDeleted = MyModelServices.DeletePerson(_personList, id);
         if (isDeleted)
         {
             return StatusCode(200, $"Person with id: {id} has been deleted");
         }
-
+        _logger.Log(LogLevel.Error, message:$"Person with id: {id} not found");
         return StatusCode(404, $"Person with id: {id} not found");
     }
 }
