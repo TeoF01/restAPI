@@ -1,5 +1,7 @@
+using RestApiProject.DbConnection;
 using Microsoft.AspNetCore.Mvc;
-using RestApiProject.Person;
+using NHibernate;
+using RestApiProject.PersonData;
 
 namespace RestApiProject.Controllers;
 
@@ -7,74 +9,103 @@ namespace RestApiProject.Controllers;
 [Route("[controller]")]
 
 public class MyModelController : ControllerBase
-{   
+{
     private readonly ILogger<MyModelController> _logger;
 
     public MyModelController(ILogger<MyModelController> logger)
     {
         _logger = logger;
     }
-    private static List<MyModel> _personList = new List<MyModel>()
-    {
-        new MyModel() { Id = 1, FirstName = "John", LastName = "Doe" },
-        new MyModel() { Id = 2, FirstName = "Aron", LastName = "Dust" },
-        new MyModel() { Id = 3, FirstName = "Alonso", LastName = "Lopez" },
-    };
-
+    
     // GET
     [HttpGet]
-    public async Task<ActionResult<MyModel>> Get(int? id)
+    public async Task<ActionResult<List<Person>>> Get(int? id)
     {
-        if (id is not null)
+        ISessionFactory session = CreateDbConnection.Start();
+        var newSession = session.OpenSession();
         {
-            foreach (MyModel person in _personList)
+            using (var tx = newSession.BeginTransaction())
             {
-                if (person.Id == id)
+                try
                 {
-                    return Ok(person);
+                    var personsList = MyModelServices.GetPerson(newSession, id);
+                    newSession.Close();
+                    return personsList;
+                }
+                catch (Exception err)
+                {
+                    _logger.Log(LogLevel.Error, message: $"{err}");
+                    return StatusCode(StatusCodes.Status404NotFound, $"Person with id: {id} not found.");
                 }
             }
-            _logger.Log(LogLevel.Error, message:$"Person with id {id} not found");
-            return StatusCode(404, $"Person with id {id} not found");
         }
-        return Ok(_personList);
     }
-
+    
     // POST
     [HttpPost]
-    public async Task<ActionResult<MyModel>> AddPerson(int id, string name, string lastName)
+    public async Task<ActionResult<Person>> AddPerson(int id, string name, string lastName)
     {
-        MyModel person;
-        try
+        Person person;
+        ISessionFactory session = CreateDbConnection.Start();
+        var newSession = session.OpenSession();
+        using (var tx = newSession.BeginTransaction())
         {
-            person = MyModelServices.CreatePerson(id, name, lastName);
-            _personList.Add(person);
-        }
-        catch (Exception e)
-        {
-            _logger.Log(LogLevel.Error, message:$"{e}");
-            return StatusCode(400, e);
+            try
+            {
+                person = MyModelServices.CreatePerson(newSession, id, name, lastName);
+                newSession.Save(person);
+                tx.Commit();
+            }
+            catch (Exception err)
+            {
+                _logger.Log(LogLevel.Error, message: $"{err}");
+                return StatusCode(400, err);
+            }
         }
         return StatusCode(201, person);
     }
 
-    // DELETE
-    [HttpDelete]
-    public async Task<ActionResult<MyModel>> DeletePerson(int id)
-    {
-        bool isDeleted = MyModelServices.DeletePerson(_personList, id);
-        if (isDeleted)
-        {
-            return StatusCode(200, $"Person with id: {id} has been deleted");
-        }
-        _logger.Log(LogLevel.Error, message:$"Person with id: {id} not found");
-        return StatusCode(404, $"Person with id: {id} not found");
-    }
     
     //UPDATE
     [HttpPut]
-    public async Task<ActionResult<MyModel>> UpdatePerson(int id, string name, string lastName)
+    public async Task<ActionResult<Person>> UpdatePerson(int id, string name, string lastName)
     {
-        return MyModelServices.UpdatePerson(_personList, id, name, lastName);
+        Person personUpdate = new Person();
+        ISessionFactory session = CreateDbConnection.Start();
+        var newSession = session.OpenSession();
+        using (var tx = newSession.BeginTransaction())
+        {
+            try
+            {
+                personUpdate = MyModelServices.UpdatePerson(newSession, id, name, lastName);
+                tx.Commit();
+                return personUpdate;
+            }
+            catch (Exception err)
+            {
+                _logger.Log(LogLevel.Error, $"{err}");
+                return StatusCode(StatusCodes.Status404NotFound, $"Person with id: {id} not found");
+            }
+        }
+    }
+    
+    
+    // DELETE
+    [HttpDelete]
+    [Route("{personId:int?}")]
+    public async Task<ActionResult<Person>> DeletePerson(int personId)
+    {
+        ISessionFactory session = CreateDbConnection.Start();
+        var newSession = session.OpenSession();
+
+        using (var tx = newSession.BeginTransaction())
+        {
+            MyModelServices.RemovePerson(newSession, personId);
+            tx.Commit();
+            newSession.Close();
+        }
+
+        _logger.Log(LogLevel.Error, message: $"Person with id: {personId} not found");
+        return StatusCode(404, $"Person with id: {personId} not found");
     }
 }

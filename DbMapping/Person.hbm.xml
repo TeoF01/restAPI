@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<hibernate-mapping xmlns="urn:nhibernate-mapping-2.2"
+                   assembly="RestApiProject"
+                   namespace="RestApiProject.PersonData">
+    <class name="Person">
+        <id name="Id">
+        </id>
+        <property name="FirstName"/>
+        <property name="LastName"/>
+    </class>
+</hibernate-mapping>
